@@ -1,5 +1,4 @@
 from pathlib import Path
-import argparse
 import sys
 import time
 import uuid
@@ -13,324 +12,230 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
+from scamshield.alerts import critical_alerts
 from scamshield.detector import ScamDetector
 from scamshield.models import TranscriptEvent
 
 
 SAMPLE_RATE = 16000
+CHUNK_SECONDS = 3
+MIN_RMS = 0.002
+
+WHISPER_MODEL = "base.en"
 
 
 def print_result(
-    text: str,
+    transcript: str,
     result,
-    elapsed: float,
 ) -> None:
+
     print()
-    print("=" * 72)
-    print(f"[{elapsed:6.1f}s]")
-    print(f'Transcript: "{text}"')
-    print("-" * 72)
+    print("=" * 70)
+    print(f'TRANSCRIPT: "{transcript}"')
+    print("-" * 70)
 
     if result.ml_scam_score is not None:
         print(
-            f"ML score           : "
+            f"ML score       : "
             f"{result.ml_scam_score:.3f}"
         )
 
     print(
-        f"Risk score         : "
-        f"{result.risk_score:.1f}/100"
+        f"Risk score     : "
+        f"{result.risk_score:.1f}"
     )
 
     print(
-        f"Risk level         : "
+        f"Risk level     : "
         f"{result.risk_level}"
     )
 
     print(
-        f"Signals            : "
+        f"Signals        : "
         f"{result.signals}"
     )
 
     print(
-        f"Scam category      : "
+        f"Scam category  : "
         f"{result.scam_category}"
     )
 
     print(
-        f"Recommended action : "
+        f"Action         : "
         f"{result.recommended_action}"
     )
 
-    if result.risk_level == "SAFE":
+    if result.risk_level == "CAUTION":
         print()
-        print("✅ No strong scam evidence yet.")
-
-    elif result.risk_level == "CAUTION":
-        print()
-        print("⚠️  CAUTION")
-        print(
-            "Stay alert and do not share "
-            "sensitive information."
-        )
+        print("⚠️  CAUTION — suspicious conversation.")
 
     elif result.risk_level == "HIGH":
         print()
-        print("⚠️  POSSIBLE SCAM")
-        print(
-            "Pause before sharing information "
-            "or taking action."
-        )
+        print("⚠️⚠️  HIGH RISK — do not share sensitive information.")
 
     elif result.risk_level == "CRITICAL":
         print()
-        print("🚨 SCAM WARNING")
+        print("🚨🚨🚨 CRITICAL SCAM WARNING 🚨🚨🚨")
 
-        action = result.recommended_action
+        if result.recommended_action == "DO_NOT_SHARE_CODE":
+            print(
+                "⛔ DO NOT SHARE THE VERIFICATION CODE."
+            )
 
-        if action == "DO_NOT_SHARE_CODE":
-            print("DO NOT SHARE THE CODE.")
-
-        elif action == "DO_NOT_SHARE_PASSWORD":
-            print("DO NOT SHARE YOUR PASSWORD.")
-
-        elif action == "DO_NOT_SHARE_PIN":
-            print("DO NOT SHARE YOUR PIN.")
-
-        elif action == "DO_NOT_SEND_MONEY":
-            print("DO NOT SEND MONEY.")
-
-        elif action == "DO_NOT_BUY_GIFT_CARDS":
-            print("DO NOT BUY GIFT CARDS.")
-
-        elif action == "DO_NOT_ALLOW_REMOTE_ACCESS":
-            print("DO NOT ALLOW REMOTE ACCESS.")
+        elif result.recommended_action:
+            print(
+                f"⛔ {result.recommended_action}"
+            )
 
         else:
-            print("STOP AND VERIFY WHO IS CALLING.")
-
-
-def record_chunk(
-    seconds: float,
-) -> np.ndarray:
-    frames = int(
-        SAMPLE_RATE * seconds
-    )
-
-    audio = sd.rec(
-        frames,
-        samplerate=SAMPLE_RATE,
-        channels=1,
-        dtype="float32",
-    )
-
-    sd.wait()
-
-    return audio.flatten()
-
-
-def transcribe_chunk(
-    whisper: WhisperModel,
-    audio: np.ndarray,
-) -> str:
-    rms = float(
-        np.sqrt(
-            np.mean(
-                np.square(audio)
+            print(
+                "⛔ STOP. Do not follow the caller's instructions."
             )
-        )
-    )
 
-    # Ignore very quiet chunks.
-    if rms < 0.002:
-        return ""
-
-    segments, _ = whisper.transcribe(
-        audio,
-        language="en",
-        vad_filter=True,
-        beam_size=1,
-        condition_on_previous_text=False,
-    )
-
-    pieces = []
-
-    for segment in segments:
-        text = segment.text.strip()
-
-        if text:
-            pieces.append(text)
-
-    return " ".join(pieces).strip()
+    print("=" * 70)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Live microphone scam detection "
-            "using Whisper + ScamShield."
-        )
-    )
-
-    parser.add_argument(
-        "--model",
-        default="base.en",
-        help="Whisper model. Default: base.en",
-    )
-
-    parser.add_argument(
-        "--chunk-seconds",
-        type=float,
-        default=3.0,
-        help=(
-            "Length of each microphone chunk. "
-            "Default: 3 seconds."
-        ),
-    )
-
-    args = parser.parse_args()
-
-    conversation_id = (
-        "live-"
-        + uuid.uuid4().hex[:8]
-    )
-
-    print()
-    print(
-        "SCAMSHIELD LIVE MICROPHONE DEMO"
-    )
-    print("=" * 72)
-
-    print(
-        f"Conversation ID : "
-        f"{conversation_id}"
-    )
-
-    print(
-        f"Chunk duration  : "
-        f"{args.chunk_seconds}s"
-    )
-
-    print(
-        f"Whisper model   : "
-        f"{args.model}"
-    )
-
-    print(
-        f"Sample rate     : "
-        f"{SAMPLE_RATE} Hz"
-    )
+def main():
 
     print()
     print("Loading Whisper...")
+    print(
+        "The first run may take a little longer "
+        "while the model loads."
+    )
 
     whisper = WhisperModel(
-        args.model,
+        WHISPER_MODEL,
         device="cpu",
         compute_type="int8",
     )
 
-    detector = ScamDetector(
-        use_ml=True
+    detector = ScamDetector()
+
+    conversation_id = (
+        f"live-{uuid.uuid4()}"
     )
 
     print()
-    print("🎙️  Listening...")
+    print("=" * 70)
+    print("SCAMSHIELD LIVE MICROPHONE")
+    print("=" * 70)
+
     print(
-        "Speak normally near the microphone."
+        f"Conversation ID: "
+        f"{conversation_id}"
     )
+
+    print()
+    print(
+        "Speak into the Mac microphone."
+    )
+
+    print(
+        f"Listening in {CHUNK_SECONDS}-second chunks."
+    )
+
     print(
         "Press Ctrl+C to stop."
     )
 
-    start_time = time.monotonic()
-
-    last_result = None
-    chunk_number = 0
+    print()
 
     try:
+
         while True:
-            chunk_number += 1
 
-            print()
             print(
-                f"Listening to chunk "
-                f"{chunk_number}..."
+                "🎙️  Listening...",
+                flush=True,
             )
 
-            audio = record_chunk(
-                args.chunk_seconds
+            audio = sd.rec(
+                int(
+                    CHUNK_SECONDS
+                    * SAMPLE_RATE
+                ),
+                samplerate=SAMPLE_RATE,
+                channels=1,
+                dtype="float32",
             )
 
-            text = transcribe_chunk(
-                whisper,
-                audio,
+            sd.wait()
+
+            audio = np.squeeze(
+                audio
             )
 
-            if not text:
+            rms = float(
+                np.sqrt(
+                    np.mean(
+                        np.square(audio)
+                    )
+                )
+            )
+
+            if rms < MIN_RMS:
                 print(
-                    "(No speech detected)"
+                    "   No clear speech detected."
                 )
                 continue
 
-            elapsed = (
-                time.monotonic()
-                - start_time
+            segments, _ = whisper.transcribe(
+                audio,
+                language="en",
+                vad_filter=True,
+                beam_size=1,
+                condition_on_previous_text=False,
             )
 
+            transcript_parts = [
+                segment.text.strip()
+                for segment in segments
+                if segment.text.strip()
+            ]
+
+            transcript = " ".join(
+                transcript_parts
+            ).strip()
+
+            if not transcript:
+                print(
+                    "   No transcript detected."
+                )
+                continue
+
             event = TranscriptEvent(
-                conversation_id=(
-                    conversation_id
-                ),
-                timestamp=elapsed,
+                conversation_id=conversation_id,
+                timestamp=time.time(),
                 speaker="caller",
-                text=text,
+                text=transcript,
             )
 
             result = detector.process(
                 event
             )
 
-            last_result = result
-
             print_result(
-                text,
+                transcript,
                 result,
-                elapsed,
+            )
+
+            # --------------------------------------
+            # n8n trusted-contact escalation
+            # --------------------------------------
+
+            critical_alerts.send_if_needed(
+                risk_event=result,
+                latest_text=transcript,
             )
 
     except KeyboardInterrupt:
+
         print()
         print()
-        print("=" * 72)
-        print("LIVE DETECTION STOPPED")
-        print("=" * 72)
-
-        if last_result is not None:
-            print(
-                f"Final risk score : "
-                f"{last_result.risk_score:.1f}/100"
-            )
-
-            print(
-                f"Final risk level : "
-                f"{last_result.risk_level}"
-            )
-
-            print(
-                f"Final category   : "
-                f"{last_result.scam_category}"
-            )
-
-            print(
-                f"Final action     : "
-                f"{last_result.recommended_action}"
-            )
-
-        else:
-            print(
-                "No speech was analyzed."
-            )
+        print(
+            "ScamShield live microphone stopped."
+        )
 
 
 if __name__ == "__main__":
