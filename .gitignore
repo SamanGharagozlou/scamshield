@@ -6,3 +6,4 @@ __pycache__/
 .DS_Store
 .vscode/
 data/raw/*.csv
+models/scam_classifier_caller.joblib
