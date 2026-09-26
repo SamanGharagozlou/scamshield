@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .detector import ScamDetector
 from .models import TranscriptEvent
@@ -8,6 +9,16 @@ app = FastAPI(
     title="ScamShield Detection API",
     version="0.1.0",
     description="Real-time scam detection backend for ScamShield.",
+)
+
+# Demo/development configuration.
+# We will restrict this to the real frontend domain before production.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 detector = ScamDetector()
