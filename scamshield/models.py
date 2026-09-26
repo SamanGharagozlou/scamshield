@@ -11,8 +11,14 @@ class TranscriptEvent(BaseModel):
 class ScamRiskEvent(BaseModel):
     conversation_id: str
     timestamp: float
+
     risk_score: float
     risk_level: str
+
     signals: list[str]
+
     scam_category: str | None = None
     recommended_action: str | None = None
+
+    ml_scam_score: float | None = None
+    detection_mode: str = "hybrid"

@@ -22,15 +22,43 @@ WEIGHTS = {
 }
 
 
+def semantic_bonus(ml_scam_score: float | None) -> float:
+    """
+    Convert the ML classifier score into supporting risk evidence.
+
+    The ML model supports the rule engine, but does not independently
+    create a CRITICAL alert.
+    """
+
+    if ml_scam_score is None:
+        return 0.0
+
+    if ml_scam_score >= 0.90:
+        return 35.0
+
+    if ml_scam_score >= 0.75:
+        return 25.0
+
+    if ml_scam_score >= 0.60:
+        return 15.0
+
+    if ml_scam_score >= 0.50:
+        return 8.0
+
+    return 0.0
+
+
 def calculate_risk(
     signals: set[ScamSignal],
+    ml_scam_score: float | None = None,
 ) -> tuple[float, str]:
+
     score = sum(
         WEIGHTS.get(signal, 0)
         for signal in signals
     )
 
-    # Dangerous signal combinations get extra weight.
+    # Dangerous contextual combinations.
     if (
         ScamSignal.BANK_CLAIM in signals
         and ScamSignal.OTP_REQUEST in signals
@@ -56,6 +84,9 @@ def calculate_risk(
         and ScamSignal.MONEY_TRANSFER_REQUEST in signals
     ):
         score += 30
+
+    # Add semantic ML evidence.
+    score += semantic_bonus(ml_scam_score)
 
     score = min(float(score), 100.0)
 
