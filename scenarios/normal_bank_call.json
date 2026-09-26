@@ -1,0 +1,32 @@
+{
+  "id": "normal_bank_call_001",
+  "label": "SAFE",
+  "category": null,
+  "turns": [
+    {
+      "timestamp": 3,
+      "speaker": "caller",
+      "text": "Hello, I'm calling regarding your bank appointment."
+    },
+    {
+      "timestamp": 10,
+      "speaker": "caller",
+      "text": "Your appointment is confirmed for tomorrow afternoon."
+    },
+    {
+      "timestamp": 18,
+      "speaker": "caller",
+      "text": "When you log into the app you may receive a verification code."
+    },
+    {
+      "timestamp": 26,
+      "speaker": "caller",
+      "text": "Never share that code with anyone, including me."
+    },
+    {
+      "timestamp": 32,
+      "speaker": "caller",
+      "text": "Thank you and have a good day."
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "id": "bank_otp_scam_001",
+  "label": "SCAM",
+  "category": "BANK_IMPERSONATION",
+  "turns": [
+    {
+      "timestamp": 3,
+      "speaker": "caller",
+      "text": "Hello, I'm calling from your bank."
+    },
+    {
+      "timestamp": 10,
+      "speaker": "caller",
+      "text": "We've detected suspicious activity on your account."
+    },
+    {
+      "timestamp": 18,
+      "speaker": "caller",
+      "text": "We need to fix this immediately."
+    },
+    {
+      "timestamp": 27,
+      "speaker": "caller",
+      "text": "You should have received a six-digit verification code."
+    },
+    {
+      "timestamp": 34,
+      "speaker": "caller",
+      "text": "Please read the code to me."
+    }
+  ]
+}
