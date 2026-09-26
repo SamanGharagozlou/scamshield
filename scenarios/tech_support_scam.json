@@ -1,0 +1,27 @@
+{
+  "id": "tech_support_scam_001",
+  "label": "SCAM",
+  "category": "TECH_SUPPORT_SCAM",
+  "turns": [
+    {
+      "timestamp": 3,
+      "speaker": "caller",
+      "text": "Hello, I'm calling from technical support."
+    },
+    {
+      "timestamp": 10,
+      "speaker": "caller",
+      "text": "We detected a serious problem with your computer."
+    },
+    {
+      "timestamp": 18,
+      "speaker": "caller",
+      "text": "We need to fix this immediately."
+    },
+    {
+      "timestamp": 26,
+      "speaker": "caller",
+      "text": "Please install AnyDesk so I can connect to your computer."
+    }
+  ]
+}

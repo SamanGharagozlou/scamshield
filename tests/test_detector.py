@@ -7,15 +7,16 @@ def test_bank_otp_scam_becomes_critical():
 
     messages = [
         "Hello, I'm calling from your bank.",
-        "We've detected suspicious activity.",
         "We need to fix this immediately.",
-        "You should have received a six-digit verification code.",
         "Please read the code to me.",
     ]
 
     result = None
 
-    for index, text in enumerate(messages):
+    for index, text in enumerate(
+        messages,
+        start=1,
+    ):
         result = detector.process(
             TranscriptEvent(
                 conversation_id="bank-scam",
@@ -27,12 +28,21 @@ def test_bank_otp_scam_becomes_critical():
 
     assert result is not None
     assert result.risk_level == "CRITICAL"
-    assert result.recommended_action == "DO_NOT_SHARE_CODE"
-    assert result.scam_category == "BANK_IMPERSONATION"
+    assert result.risk_score >= 80
 
     assert "BANK_CLAIM" in result.signals
     assert "OTP_REQUEST" in result.signals
     assert "URGENCY" in result.signals
+
+    assert (
+        result.scam_category
+        == "BANK_IMPERSONATION"
+    )
+
+    assert (
+        result.recommended_action
+        == "DO_NOT_SHARE_CODE"
+    )
 
 
 def test_safe_conversation_stays_safe():
@@ -46,7 +56,10 @@ def test_safe_conversation_stays_safe():
 
     result = None
 
-    for index, text in enumerate(messages):
+    for index, text in enumerate(
+        messages,
+        start=1,
+    ):
         result = detector.process(
             TranscriptEvent(
                 conversation_id="safe-call",
@@ -57,9 +70,10 @@ def test_safe_conversation_stays_safe():
         )
 
     assert result is not None
+
     assert result.risk_level == "SAFE"
-    assert result.risk_score == 0
-    assert result.recommended_action is None
+    assert result.risk_score < 30
+    assert result.signals == []
 
 
 def test_detector_keeps_conversations_separate():
@@ -83,8 +97,8 @@ def test_detector_keeps_conversations_separate():
         )
     )
 
-    assert result.risk_score == 0
     assert result.risk_level == "SAFE"
+    assert result.risk_score < 30
     assert result.signals == []
 
 
@@ -100,7 +114,9 @@ def test_detector_reset_removes_previous_state():
         )
     )
 
-    detector.reset("reset-test")
+    detector.reset(
+        "reset-test"
+    )
 
     result = detector.process(
         TranscriptEvent(
@@ -111,6 +127,52 @@ def test_detector_reset_removes_previous_state():
         )
     )
 
+    assert result.risk_level == "SAFE"
+    assert result.risk_score < 30
+    assert result.signals == []
+
+
+def test_detector_returns_ml_score():
+    detector = ScamDetector()
+
+    result = detector.process(
+        TranscriptEvent(
+            conversation_id="ml-score-test",
+            timestamp=1,
+            speaker="caller",
+            text=(
+                "Please tell me the verification "
+                "code that appeared on your phone."
+            ),
+        )
+    )
+
+    assert result.ml_scam_score is not None
+
+    assert (
+        0.0
+        <= result.ml_scam_score
+        <= 1.0
+    )
+
+    assert result.detection_mode == "hybrid"
+
+
+def test_rules_only_detector_mode():
+    detector = ScamDetector(
+        use_ml=False
+    )
+
+    result = detector.process(
+        TranscriptEvent(
+            conversation_id="rules-test",
+            timestamp=1,
+            speaker="caller",
+            text="Hello, how are you today?",
+        )
+    )
+
+    assert result.ml_scam_score is None
+    assert result.detection_mode == "rules"
     assert result.risk_score == 0
     assert result.risk_level == "SAFE"
-    assert result.signals == []

@@ -36,6 +36,52 @@ def main():
     print("Loading ScamShield dataset...")
 
     train = load_jsonl("train.jsonl")
+    augmentation = pd.read_json(
+    "data/augmentation/scamshield_train.jsonl",
+    lines=True,
+    )
+
+    augmentation = augmentation[
+    ["text", "label"]
+    ]
+
+    # Give our difficult ScamShield-specific examples
+    # more influence than one ordinary synthetic row.
+    augmentation = pd.concat(
+    [augmentation] * 5,
+    ignore_index=True,
+)
+
+    train = pd.concat(
+    [
+        train,
+        augmentation,
+    ],
+    ignore_index=True,
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     validation = load_jsonl("validation.jsonl")
     test = load_jsonl("test.jsonl")
 
